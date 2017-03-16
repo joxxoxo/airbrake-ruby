@@ -12,9 +12,7 @@ RSpec.describe Airbrake::SyncSender do
   end
 
   describe "#send" do
-    let(:promise) { Airbrake::Promise.new }
-
-    it "catches exceptions raised while sending" do
+    it "raises exception while sending" do
       stdout = StringIO.new
       config = Airbrake::Config.new(logger: Logger.new(stdout))
       sender = described_class.new(config)
@@ -22,8 +20,9 @@ RSpec.describe Airbrake::SyncSender do
       https = double("foo")
       allow(sender).to receive(:build_https).and_return(https)
       allow(https).to receive(:request).and_raise(StandardError.new('foo'))
-      expect(sender.send(notice, promise)).to be_an(Airbrake::Promise)
-      expect(promise.value).to eq('error' => '**Airbrake: HTTP error: foo')
+
+      expect { sender.send(notice) }.
+        to raise_error(Airbrake::Error, '**Airbrake: HTTP error: foo')
       expect(stdout.string).to match(/ERROR -- : .+ HTTP error: foo/)
     end
 
@@ -46,9 +45,9 @@ RSpec.describe Airbrake::SyncSender do
         sender = described_class.new(config)
         notice = Airbrake::Notice.new(config, ex)
 
-        expect(sender.send(notice, promise)).to be_an(Airbrake::Promise)
-        expect(promise.value).
-          to match('error' => '**Airbrake: notice was not sent because of missing body')
+        expect { sender.send(notice) }.
+          to raise_error(Airbrake::Error,
+                         '**Airbrake: notice was not sent because of missing body')
         expect(stdout.string).to match(/ERROR -- : .+ notice was not sent/)
       end
     end

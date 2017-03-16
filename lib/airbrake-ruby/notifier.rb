@@ -54,7 +54,8 @@ module Airbrake
     ##
     # @macro see_public_api_method
     def notify_sync(exception, params = {})
-      send_notice(exception, params, @sync_sender).value
+      promise = send_notice(exception, params, @sync_sender)
+      promise.value || { 'error' => promise.reason }
     end
 
     ##
@@ -93,9 +94,7 @@ module Airbrake
       host = @config.endpoint.to_s.split(@config.endpoint.path).first
       path = "/api/v4/projects/#{@config.project_id}/deploys?key=#{@config.project_key}"
 
-      promise = Airbrake::Promise.new
-      @sync_sender.send(deploy_params, promise, URI.join(host, path))
-      promise
+      @sync_sender.send(deploy_params, URI.join(host, path))
     end
 
     private
@@ -115,18 +114,24 @@ module Airbrake
     end
 
     def send_notice(exception, params, sender)
-      promise = Airbrake::Promise.new
       if @config.ignored_environment?
-        return promise.reject("The '#{@config.environment}' environment is ignored")
+        return Concurrent::Promise.execute do
+          raise Airbrake::Error, "The '#{@config.environment}' environment is ignored"
+        end
       end
 
+      # Build outside the promise thread to be able construct manual backtrace
+      # from the current thread.
       notice = build_notice(exception, params)
-      @filter_chain.refine(notice)
-      if notice.ignored?
-        return promise.reject("#{notice} was marked as ignored")
-      end
 
-      sender.send(notice, promise)
+      Concurrent::Promise.execute do
+        @filter_chain.refine(notice)
+        if notice.ignored?
+          raise Airbrake::Error, "#{notice} was marked as ignored"
+        end
+
+        sender.send(notice)
+      end
     end
 
     def default_sender

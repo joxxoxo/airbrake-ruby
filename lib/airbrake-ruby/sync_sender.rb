@@ -22,14 +22,14 @@ module Airbrake
     # @param [Airbrake::Notice] notice
     # @param [Airbrake::Notice] endpoint
     # @return [Hash{String=>String}] the parsed HTTP response
-    def send(notice, promise, endpoint = @config.endpoint)
+    def send(notice, endpoint = @config.endpoint)
       response = nil
       req = build_post_request(endpoint, notice)
 
       if req.body.nil?
         reason = "#{LOG_LABEL} notice was not sent because of missing body"
         @config.logger.error(reason)
-        return promise.reject(reason)
+        raise Airbrake::Error, reason
       end
 
       https = build_https(endpoint)
@@ -39,12 +39,12 @@ module Airbrake
       rescue => ex
         reason = "#{LOG_LABEL} HTTP error: #{ex}"
         @config.logger.error(reason)
-        return promise.reject(reason)
+        raise Airbrake::Error, reason
       end
 
       parsed_resp = Response.parse(response, @config.logger)
-      return promise.reject(parsed_resp['error']) if parsed_resp.key?('error')
-      promise.resolve(parsed_resp)
+      raise Airbrake::Error, parsed_resp['error'] if parsed_resp.key?('error')
+      parsed_resp
     end
 
     private

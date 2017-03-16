@@ -5,10 +5,11 @@ require 'thread'
 require 'set'
 require 'socket'
 
+require 'concurrent/promise'
+
 require 'airbrake-ruby/version'
 require 'airbrake-ruby/config'
 require 'airbrake-ruby/config/validator'
-require 'airbrake-ruby/promise'
 require 'airbrake-ruby/sync_sender'
 require 'airbrake-ruby/async_sender'
 require 'airbrake-ruby/response'

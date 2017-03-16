@@ -385,7 +385,7 @@ RSpec.describe Airbrake::Notifier do
     end
 
     it "returns a promise" do
-      expect(@airbrake.notify(ex)).to be_an(Airbrake::Promise)
+      expect(@airbrake.notify(ex)).to be_an(Concurrent::Promise)
       sleep 1
     end
 
